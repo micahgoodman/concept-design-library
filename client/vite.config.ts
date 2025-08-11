@@ -3,10 +3,10 @@ import path from 'node:path';
 
 export default defineConfig({
   server: {
-    port: 5173,
+    port: 4173,
     proxy: {
       '/api': {
-        target: 'http://localhost:5175',
+        target: 'http://localhost:4175',
         changeOrigin: true,
       }
     }

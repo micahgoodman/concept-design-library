@@ -10,11 +10,21 @@ export interface ConceptRecord {
     updatedAt: string;
 }
 
-export class ConceptLibraryConcept {
-    private concepts: Map<string, ConceptRecord> = new Map();
-    private byOwner: Map<string, Set<string>> = new Map();
+function mapRowToConcept(r: any): ConceptRecord {
+    return {
+        concept: r.concept,
+        owner: r.owner,
+        title: r.title,
+        description: r.description,
+        content: r.content ?? "",
+        createdAt: r.created_at,
+        updatedAt: r.updated_at,
+    };
+}
 
-    createConcept(
+export class ConceptLibraryConcept {
+    constructor(private sb: any) {}
+    async createConcept(
         { concept, owner, title, description, content = "" }: {
             concept?: string;
             owner: string;
@@ -22,104 +32,96 @@ export class ConceptLibraryConcept {
             description: string;
             content?: string;
         },
-    ): { concept: string } {
+    ): Promise<{ concept: string }> {
         const id = concept ?? uuid();
-        const rec: ConceptRecord = {
-            concept: id,
-            owner,
-            title,
-            description,
-            content,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-        };
-        this.concepts.set(id, rec);
-        if (!this.byOwner.has(owner)) this.byOwner.set(owner, new Set());
-        this.byOwner.get(owner)!.add(id);
+        const now = new Date().toISOString();
+        const { error } = await this.sb.from("concepts").insert([
+            {
+                concept: id,
+                owner,
+                title,
+                description,
+                content,
+                created_at: now,
+                updated_at: now,
+            },
+        ]);
+        if (error) throw error;
         return { concept: id };
     }
 
-    deleteConcept({ concept }: { concept: string }): { concept: string } {
-        const rec = this.concepts.get(concept);
-        if (rec) {
-            this.byOwner.get(rec.owner)?.delete(concept);
-            this.concepts.delete(concept);
-        }
+    async deleteConcept({ concept }: { concept: string }): Promise<{ concept: string }> {
+        const { error } = await this.sb.from("concepts").delete().eq("concept", concept);
+        if (error) throw error;
         return { concept };
     }
 
-    updateTitle(
+    async updateTitle(
         { concept, title }: { concept: string; title: string },
-    ): { concept: string } {
-        const rec = this.concepts.get(concept);
-        if (rec) {
-            rec.title = title;
-            rec.updatedAt = new Date().toISOString();
-        }
+    ): Promise<{ concept: string }> {
+        const { error } = await this.sb.from("concepts").update({ title, updated_at: new Date().toISOString() }).eq("concept", concept);
+        if (error) throw error;
         return { concept };
     }
 
-    updateDescription(
+    async updateDescription(
         { concept, description }: { concept: string; description: string },
-    ): { concept: string } {
-        const rec = this.concepts.get(concept);
-        if (rec) {
-            rec.description = description;
-            rec.updatedAt = new Date().toISOString();
-        }
+    ): Promise<{ concept: string }> {
+        const { error } = await this.sb.from("concepts").update({ description, updated_at: new Date().toISOString() }).eq("concept", concept);
+        if (error) throw error;
         return { concept };
     }
 
-    updateContent(
+    async updateContent(
         { concept, content }: { concept: string; content: string },
-    ): { concept: string } {
-        const rec = this.concepts.get(concept);
-        if (rec) {
-            rec.content = content;
-            rec.updatedAt = new Date().toISOString();
-        }
+    ): Promise<{ concept: string }> {
+        const { error } = await this.sb.from("concepts").update({ content, updated_at: new Date().toISOString() }).eq("concept", concept);
+        if (error) throw error;
         return { concept };
     }
 
     // Queries
-    _get(
+    async _get(
         { concept }: { concept: string },
-    ): ConceptRecord[] {
-        const rec = this.concepts.get(concept);
-        return rec ? [{ ...rec }] : [];
+    ): Promise<ConceptRecord[]> {
+        const { data, error } = await this.sb.from("concepts").select("concept, owner, title, description, content, created_at, updated_at").eq("concept", concept).maybeSingle();
+        if (error) throw error;
+        return data ? [mapRowToConcept(data)] : [];
     }
 
-    _listAll(): ConceptRecord[] {
-        return [...this.concepts.values()].map((r) => ({ ...r }));
+    async _listAll(): Promise<ConceptRecord[]> {
+        const { data, error } = await this.sb.from("concepts").select("concept, owner, title, description, content, created_at, updated_at");
+        if (error) throw error;
+        return (data ?? []).map(mapRowToConcept);
     }
 
-    _listByOwner(
+    async _listByOwner(
         { owner }: { owner: string },
-    ): { concept: string; title: string; createdAt: string; updatedAt: string }[] {
-        const ids = this.byOwner.get(owner) ?? new Set();
-        return [...ids].map((id) => {
-            const r = this.concepts.get(id)!;
-            return {
-                concept: r.concept,
-                title: r.title,
-                createdAt: r.createdAt,
-                updatedAt: r.updatedAt,
-            };
-        });
+    ): Promise<{ concept: string; title: string; createdAt: string; updatedAt: string }[]> {
+        const { data, error } = await this.sb
+            .from("concepts")
+            .select("concept, title, created_at, updated_at")
+            .eq("owner", owner);
+        if (error) throw error;
+        return (data ?? []).map((r: any) => ({
+            concept: r.concept,
+            title: r.title,
+            createdAt: r.created_at,
+            updatedAt: r.updated_at,
+        }));
     }
 
-    _getPayload(
+    async _getPayload(
         { concept }: { concept: string },
-    ): { payload: unknown }[] {
-        const rec = this.concepts.get(concept);
-        if (!rec) return [];
-        return [{ payload: { ...rec } }];
+    ): Promise<{ payload: unknown }[]> {
+        const rows = await this._get({ concept });
+        if (!rows.length) return [];
+        return [{ payload: rows[0] }];
     }
 
-    _listAllPayload(): { payload: unknown }[] {
-        const payload = this._listAll().sort((a, b) =>
-            a.createdAt < b.createdAt ? 1 : -1
-        );
+    async _listAllPayload(): Promise<{ payload: unknown }[]> {
+        const rows = await this._listAll();
+        const payload = rows.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
         return [{ payload }];
     }
 }

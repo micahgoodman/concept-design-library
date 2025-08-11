@@ -1,3 +1,7 @@
 example*
 node_modules
-.env
+client/dist*
+.env*
+client/.env*
+.firebase/hosting*
+supabase/.temp*

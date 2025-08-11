@@ -1,5 +1,5 @@
 import { $vars } from "./vars.ts";
-import { inspect, uuid } from "./util.ts";
+import { inspect, uuid, INSPECT_CUSTOM } from "./util.ts";
 import { ActionConcept, ActionRecord } from "./actions.ts";
 import { Frames } from "./frames.ts";
 import {
@@ -334,11 +334,13 @@ export class SyncConcept {
                         (instrumented as InstrumentedAction).action = action;
                         const instrumentedRepr = () => `${inspect(action)}`;
                         (instrumented as InstrumentedAction).toString = instrumentedRepr as unknown as () => string;
-                        Object.defineProperty(instrumented, (inspect as any).custom, {
-                            value: instrumentedRepr,
-                            writable: false,
-                            configurable: true,
-                        });
+                        if (INSPECT_CUSTOM) {
+                            Object.defineProperty(instrumented, INSPECT_CUSTOM, {
+                                value: instrumentedRepr,
+                                writable: false,
+                                configurable: true,
+                            });
+                        }
                         boundActions.set(value, instrumented as InstrumentedAction);
                     }
                     return instrumented as InstrumentedAction;

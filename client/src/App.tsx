@@ -20,8 +20,14 @@ export default function App() {
   }
 
   async function refresh() {
-    const data = await fetchConcepts();
-    setItems(data);
+    try {
+      const data = await fetchConcepts();
+      setItems(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error(err);
+      showToast('Failed to load concepts');
+      setItems([]);
+    }
   }
 
   const filtered = useMemo(() => {
