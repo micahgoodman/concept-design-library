@@ -11,8 +11,8 @@ export function Modal({ title, onClose, children }: Props) {
     <div className="modal" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="modal-content">
         <div className="modal-header">
-          <h3 style={{ margin: 0 }}>{title}</h3>
-          <button type="button" className="btn secondary" onClick={onClose}>Close</button>
+          <h2 style={{ margin: 0 }}>{title}</h2>
+          <button type="button" className="modal-close-btn" aria-label="Close modal" onClick={onClose}>×</button>
         </div>
         <div>
           {children}
